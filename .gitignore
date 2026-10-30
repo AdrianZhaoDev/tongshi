@@ -1,0 +1,10 @@
+node_modules/
+dist/
+unpackage/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+.idea/
+project.private.config.json

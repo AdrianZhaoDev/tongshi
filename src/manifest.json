@@ -1,0 +1,25 @@
+{
+  "name": "通识卡",
+  "appid": "",
+  "description": "通识卡：专为家长设计的亲子通识对谈与打卡工具，当前为初始化项目导览",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "vueVersion": "3",
+  "uniStatistics": {
+    "enable": false
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": true
+    },
+    "usingComponents": true
+  },
+  "h5": {
+    "title": "通识卡 · 项目导览",
+    "router": {
+      "mode": "hash"
+    }
+  }
+}

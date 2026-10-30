@@ -1,0 +1,30 @@
+/* Hallmark · macrostructure: 单列阅读导览 · tone: 温暖克制 · anchor hue: 森林绿 */
+/* 采用白皮书原始色值与系统中文字体；不引入外部字体或装饰动画。 */
+page {
+  --color-background: #F9F9F7;
+  --color-surface: #FFFFFF;
+  --color-ink: #263D30;
+  --color-muted: #626B64;
+  --color-line: #E1E6DF;
+  --color-selected: #EFF5EF;
+  --color-pressed: #E2ECE2;
+  --color-nature: #3C825B;
+  --color-society: #356AC3;
+  --color-technology: #E67E22;
+  --color-thinking: #7D5BA6;
+  --color-arts: #D96B6B;
+  --color-focus: #295D40;
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --text-small: 13px;
+  --text-body: 16px;
+  --text-title: 22px;
+  --text-display: 48px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-section: 48px;
+  --radius-panel: 16px;
+  --touch-min: 44px;
+}
