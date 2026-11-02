@@ -18,8 +18,34 @@
 | 事实核查、分龄检查、实验安全审校 | [.agents/skills/content-review/SKILL.md](.agents/skills/content-review/SKILL.md) |
 | uni-app 页面、组件、跨端交互 | [.agents/skills/uniapp-page/SKILL.md](.agents/skills/uniapp-page/SKILL.md) |
 | 餐桌一问日签、亲子金句分享海报 | [.agents/skills/parent-poster/SKILL.md](.agents/skills/parent-poster/SKILL.md) |
-
+| UI/UX 设计推荐与可用性审查 | [.agents/skills/ui-ux-pro-max/SKILL.md](.agents/skills/ui-ux-pro-max/SKILL.md) |
 本仓库只维护 `.agents/skills/` 一份源文件。不复制出多份工具专属规则；工具未自动加载时，通过本入口显式读取。预置 skill 是开发工作流，不代表已接入在线 AI 产品功能。
+
+## Penpot MCP 原型设计与跨设备部署
+
+本项目使用 Penpot MCP 服务进行高保真 UI/UX 原型直接设计与视觉审查。切换电脑时可按以下步骤快速部署：
+
+1. **配置 MCP 服务**（见项目根目录 `.mcp.json`）：
+   ```json
+   {
+     "mcpServers": {
+       "penpot": {
+         "command": "npx",
+         "args": ["-y", "mcp-remote", "http://localhost:4401/mcp", "--allow-http"]
+       }
+     }
+   }
+   ```
+2. **安装并启动 Penpot 插件客户端**：
+   - 打开 Penpot 项目网页端，在右侧插件区加载/运行 Penpot MCP Plugin。
+   - 启动本地代理连接（默认端口 `4401`），点击插件面板的 **Connect MCP Server** 保持绿色 `● Connected` 状态。
+   - *注意*：若浏览器长时间处于后台，插件可能休眠挂起（提示 `no heartbeat` 或 `No Penpot plugin instances`），只需点击唤醒 Penpot 标签页即可自动恢复。
+3. **画布结构与规范**：
+   - 包含三大核心高保真画板：
+     - `iPhone 14 - 通识卡 (Today)`（X: 200, 375×812）：沉浸式主角卡片、无焦虑微元信息、亲子生活类比对话框、底部宽胶囊完成按钮。
+     - `iPhone 14 - 通识卡 (Footprint)`（X: 722, 375×812）：去考评化温润手账、5 维柔和主题徽章、真实童言金句卡片列表。
+     - `iPhone 14 / 15 - 项目导览首页`（X: 1200, 390×1080）：五大主题折叠手风琴卡片演示（自然与生命展开）、分龄三阶梯模块、底部边界说明。
+   - 全局底部统一采用深色毛玻璃悬浮 Dock（260×54px，圆角 27px，距底 34px）。
 
 ## 不可越过的边界
 
