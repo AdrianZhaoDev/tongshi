@@ -1,0 +1,595 @@
+/*
+ * Cards transforms adapted from Swiper 14.0.1, modules/effect-cards.mjs:
+ * https://github.com/nolimits4web/swiper/blob/v14.0.1/src/modules/effect-cards/effect-cards.mjs
+ * Default perSlideOffset = 8, perSlideRotate = 2. No Swiper DOM engine is used.
+ *
+ * The MIT License (MIT)
+ * Copyright (c) 2019 Vladimir Kharlampidi
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+// ES5/WXS only. State belongs to the owner descriptor, not this singleton module.
+// Frames never call setData: only setStyle, and semantic notifications on changes.
+function clamp(value, lower, upper) {
+  return Math.max(lower, Math.min(upper, value));
+}
+
+function stateFor(owner) {
+  var bag = owner.getState();
+  if (!bag.dailyCardDeck) {
+    bag.dailyCardDeck = {
+      identity: null,
+      count: 0,
+      index: -1,
+      propIndex: -1,
+      target: 0,
+      position: 0,
+      velocity: 0,
+      liftIndex: 0,
+      width: 0,
+      reduced: false,
+      alive: true,
+      queued: false,
+      lastFrame: 0,
+      clock: 0,
+      revision: -1,
+      mountAttempts: 0,
+      refs: [],
+      visible: [],
+      flips: [],
+      gesture: null,
+      touchLocked: false,
+      blockTap: false,
+      lastScroll: -1000,
+      notifiedIndex: -2,
+      notifiedBack: false,
+      focusRequested: false,
+      reveal: 1
+    };
+  }
+  return bag.dailyCardDeck;
+}
+
+function centeredIndex(state) {
+  return state.count ? clamp(Math.round(state.position), 0, state.count - 1) : -1;
+}
+
+function held(state) {
+  return state.gesture && state.gesture.mode !== 'vertical';
+}
+
+function flipFor(state, index) {
+  if (!state.flips[index]) {
+    state.flips[index] = { angle: 0, target: 0, velocity: 0 };
+  }
+  return state.flips[index];
+}
+
+function refsFor(state, owner, index) {
+  if (state.refs[index]) return state.refs[index];
+  var plane = owner.selectComponent('.deck-plane-' + index);
+  var rotator = owner.selectComponent('.deck-rotator-' + index);
+  var front = owner.selectComponent('.deck-front-' + index);
+  var back = owner.selectComponent('.deck-back-' + index);
+  var frontCopy = owner.selectComponent('.deck-front-copy-' + index);
+  var backCopy = owner.selectComponent('.deck-back-copy-' + index);
+  var shade = owner.selectComponent('.deck-shade-' + index);
+  if (!plane || !rotator || !front || !back || !frontCopy || !backCopy || !shade) return null;
+  state.refs[index] = {
+    plane: plane,
+    rotator: rotator,
+    front: front,
+    back: back,
+    frontCopy: frontCopy,
+    backCopy: backCopy,
+    shade: shade
+  };
+  return state.refs[index];
+}
+
+function measure(state, owner) {
+  var viewport = owner.selectComponent('.deck-viewport');
+  if (!viewport) return;
+  var rect = viewport.getBoundingClientRect();
+  if (rect && rect.width > 0) state.width = rect.width;
+}
+
+function schedule(state, owner) {
+  if (state.queued || !state.alive) return;
+  state.queued = true;
+  owner.requestAnimationFrame(function(time) {
+    state.queued = false;
+    if (state.alive) frame(state, owner, time);
+  });
+}
+
+function notifyPresentation(state, owner, index, back) {
+  if (index === state.notifiedIndex && back === state.notifiedBack && !state.focusRequested) return;
+  state.notifiedIndex = index;
+  state.notifiedBack = back;
+  var focus = state.focusRequested;
+  state.focusRequested = false;
+  owner.callMethod('onDeckPresentation', {
+    identity: state.identity,
+    index: index,
+    back: back,
+    focus: focus
+  });
+}
+
+function paint(state, owner) {
+  var center = centeredIndex(state);
+  var lower = Math.max(0, Math.floor(state.position) - 3);
+  var upper = Math.min(state.count - 1, Math.ceil(state.position) + 3);
+  var old = state.visible;
+  var visible = [];
+  var index;
+  var missing = false;
+  for (index = 0; index < old.length; index += 1) {
+    if (old[index] < lower || old[index] > upper) {
+      var hidden = state.refs[old[index]];
+      if (hidden) hidden.plane.setStyle({ visibility: 'hidden', 'pointer-events': 'none' });
+      var hiddenFlip = state.flips[old[index]];
+      if (hiddenFlip) {
+        hiddenFlip.angle = hiddenFlip.target;
+        hiddenFlip.velocity = 0;
+      }
+    }
+  }
+  for (index = lower; index <= upper; index += 1) {
+    var refs = refsFor(state, owner, index);
+    if (!refs) {
+      missing = true;
+      continue;
+    }
+    visible.push(index);
+    var progress = clamp(state.position - index, -4, 4);
+    var absolute = Math.abs(progress);
+    var rotate = -2 * progress;
+    var offset = 8 - absolute * 0.75;
+    var scale = 1;
+    var y = 0;
+    var z = -100 * absolute;
+    // Keep the same departing plane throughout a reversal/interruption. Changing
+    // it merely because velocity changed sign would visibly pop the Cards lift.
+    if (!state.reduced && index === state.liftIndex && absolute > 0 && absolute < 1) {
+      var lift = Math.pow(1 - Math.abs((absolute - 0.5) / 0.5), 0.5);
+      rotate += -28 * progress * lift;
+      scale = 1 - 0.5 * lift * absolute;
+      offset += 96 * lift;
+      y = -25 * lift * absolute;
+    }
+    var x = -offset * progress;
+    if (state.reduced) {
+      rotate = 0;
+      z = 0;
+      if (held(state) && index === state.liftIndex) x = -100 * progress;
+    }
+    var moving = Math.abs(state.target - state.position) > 0.001 || Math.abs(state.velocity) > 0.008 || held(state);
+    refs.plane.setStyle({
+      transform: 'translate3d(' + x + '%, ' + y + '%, ' + z + 'px) rotateZ(' + rotate + 'deg) scale(' + scale + ')',
+      'z-index': '' + (1000 - Math.abs(Math.round(state.position - index))),
+      visibility: 'visible',
+      'pointer-events': index === center ? 'auto' : 'none',
+      'will-change': moving ? 'transform' : 'auto'
+    });
+    var flip = flipFor(state, index);
+    var back = flip.angle > 90;
+    refs.rotator.setStyle({ transform: state.reduced ? 'none' : 'rotateY(' + flip.angle + 'deg)' });
+    refs.front.setStyle({
+      visibility: back ? 'hidden' : 'visible',
+      'pointer-events': !back && index === center ? 'auto' : 'none',
+      transform: 'translateZ(1px)'
+    });
+    refs.back.setStyle({
+      visibility: back ? 'visible' : 'hidden',
+      'pointer-events': back && index === center ? 'auto' : 'none',
+      transform: state.reduced ? 'translateZ(1px)' : 'rotateY(180deg) translateZ(1px)'
+    });
+    // Only material, never inactive text, can show through the warm surface.
+    // Neither the plane nor its preserve-3d rotator is made translucent.
+    refs.frontCopy.setStyle({ visibility: index === center && !back ? 'visible' : 'hidden', opacity: state.reveal });
+    refs.backCopy.setStyle({ visibility: index === center && back ? 'visible' : 'hidden', opacity: state.reveal });
+    refs.shade.setStyle({ opacity: clamp((absolute - 0.5) / 0.5, 0, 1) });
+  }
+  state.visible = visible;
+  var currentFlip = center >= 0 ? flipFor(state, center) : null;
+  notifyPresentation(state, owner, center, currentFlip ? currentFlip.angle > 90 : false);
+  return missing;
+}
+
+function frame(state, owner, time) {
+  var now = typeof time === 'number' ? time : state.clock + 1000 / 60;
+  var dt = state.lastFrame ? clamp((now - state.lastFrame) / 1000, 0.001, 0.032) : 1 / 60;
+  state.clock = now;
+  state.lastFrame = now;
+  var steps = Math.ceil(dt / 0.008);
+  var step = dt / steps;
+  var moving = false;
+  var iteration;
+  if (!held(state)) {
+    if (state.reduced) {
+      state.position = state.target;
+      state.velocity = 0;
+    } else {
+      for (iteration = 0; iteration < steps; iteration += 1) {
+        state.velocity += (240 * (state.target - state.position) - 29 * state.velocity) * step;
+        state.position += state.velocity * step;
+      }
+      if (Math.abs(state.target - state.position) < 0.001 && Math.abs(state.velocity) < 0.008) {
+        state.position = state.target;
+        state.velocity = 0;
+        state.liftIndex = state.target;
+      } else {
+        moving = true;
+      }
+    }
+  }
+  // Each full-card crossing has zero lift, so re-anchoring here is continuous.
+  while (state.position - state.liftIndex > 1) state.liftIndex += 1;
+  while (state.position - state.liftIndex < -1) state.liftIndex -= 1;
+  for (var visibleIndex = 0; visibleIndex < state.visible.length; visibleIndex += 1) {
+    var flip = flipFor(state, state.visible[visibleIndex]);
+    if (state.reduced) {
+      flip.angle = flip.target;
+      flip.velocity = 0;
+    } else {
+      for (iteration = 0; iteration < steps; iteration += 1) {
+        flip.velocity += (260 * (flip.target - flip.angle) - 31 * flip.velocity) * step;
+        flip.angle += flip.velocity * step;
+      }
+      if (Math.abs(flip.target - flip.angle) < 0.02 && Math.abs(flip.velocity) < 0.1) {
+        flip.angle = flip.target;
+        flip.velocity = 0;
+      } else {
+        moving = true;
+      }
+    }
+  }
+  if (state.reveal < 1) {
+    state.reveal = Math.min(1, state.reveal + dt / 0.14);
+    moving = state.reveal < 1 || moving;
+  }
+  if (!state.width) measure(state, owner);
+  var missing = paint(state, owner);
+  if (missing) state.mountAttempts += 1;
+  if (moving || (missing && state.mountAttempts < 8)) {
+    schedule(state, owner);
+  } else {
+    state.lastFrame = 0;
+  }
+}
+
+function observe(model, previous, owner) {
+  if (!model) return;
+  var state = stateFor(owner);
+  state.alive = model.alive !== false;
+  if (!state.alive) {
+    state.gesture = null;
+    return;
+  }
+  var initial = state.identity !== model.identity;
+  var nextIndex = model.count ? clamp(model.index, 0, model.count - 1) : -1;
+  if (initial) {
+    state.blockTap = state.gesture !== null;
+    state.identity = model.identity;
+    state.count = model.count;
+    state.index = nextIndex;
+    state.propIndex = nextIndex;
+    state.position = Math.max(0, nextIndex);
+    state.target = state.position;
+    state.liftIndex = state.position;
+    state.velocity = 0;
+    state.refs = [];
+    state.visible = [];
+    state.flips = [];
+    state.gesture = null;
+    state.touchLocked = false;
+    state.notifiedIndex = -2;
+    state.notifiedBack = false;
+    state.lastScroll = -1000;
+    state.reveal = 1;
+    state.lastFrame = 0;
+  } else if (nextIndex !== state.propIndex) {
+    state.propIndex = nextIndex;
+    // A parent's echo of our commit must not restart or zero the live spring.
+    if (nextIndex >= 0 && nextIndex !== state.target) {
+      state.gesture = null;
+      state.blockTap = true;
+      state.index = nextIndex;
+      state.target = nextIndex;
+      if (state.reduced) state.reveal = 0;
+    }
+  }
+  if (state.reduced !== model.reduced) {
+    state.reduced = model.reduced === true;
+    if (state.reduced) {
+      state.position = state.target;
+      state.velocity = 0;
+      state.reveal = 0;
+      for (var index = 0; index < state.flips.length; index += 1) {
+        if (state.flips[index]) {
+          state.flips[index].angle = state.flips[index].target;
+          state.flips[index].velocity = 0;
+        }
+      }
+    }
+  }
+  if (initial || model.revision !== state.revision) {
+    state.revision = model.revision;
+    state.refs = [];
+    state.mountAttempts = 0;
+    measure(state, owner);
+  }
+  schedule(state, owner);
+}
+
+function rubber(value, lower, upper) {
+  var edge = value < lower ? lower : upper;
+  if (value >= lower && value <= upper) return value;
+  var excess = value - edge;
+  return edge + excess * 0.55 / (1 + 0.55 * Math.abs(excess));
+}
+
+function timestamp(event) {
+  return typeof event.timeStamp === 'number' ? event.timeStamp : 0;
+}
+
+function begin(state, owner, x, y, time, kind, identifier) {
+  if (!state.alive || !state.count || state.gesture) return;
+  measure(state, owner);
+  if (!state.width) return;
+  state.mountAttempts = 0;
+  state.blockTap = time - state.lastScroll < 180;
+  state.gesture = {
+    kind: kind,
+    identifier: identifier,
+    mode: 'pending',
+    x: x,
+    y: y,
+    lastTime: time,
+    lastMove: time,
+    startPosition: state.position,
+    startTarget: state.target,
+    lastPosition: state.position
+  };
+  // Freeze at the presentation value, retaining the current spring velocity.
+  // No target/index snap and no transform readback through the logic layer.
+  schedule(state, owner);
+}
+
+function move(state, owner, x, y, time) {
+  var gesture = state.gesture;
+  if (!gesture || gesture.mode === 'vertical') return;
+  var dx = x - gesture.x;
+  var dy = y - gesture.y;
+  var ax = Math.abs(dx);
+  var ay = Math.abs(dy);
+  if (Math.max(ax, ay) >= 8) state.blockTap = true;
+  if (gesture.mode === 'pending') {
+    if (Math.max(ax, ay) < 8) return;
+    if (ay > ax * 1.1 || (Math.max(ax, ay) > 12 && ax <= ay * 1.1)) {
+      gesture.mode = 'vertical';
+      schedule(state, owner);
+      return;
+    }
+    if (ax <= ay * 1.1) return;
+    gesture.mode = 'horizontal';
+  }
+  var raw = gesture.startPosition - dx / state.width;
+  var position = rubber(raw, 0, state.count - 1);
+  var elapsed = clamp((time - gesture.lastTime) / 1000, 0.004, 0.08);
+  var sample = (position - gesture.lastPosition) / elapsed;
+  state.velocity = clamp(sample * 0.65 + state.velocity * 0.35, -8, 8);
+  state.position = position;
+  gesture.lastPosition = position;
+  gesture.lastTime = time;
+  gesture.lastMove = time;
+  schedule(state, owner);
+  return false;
+}
+
+function commit(state, owner, target, immediate) {
+  target = clamp(target, 0, state.count - 1);
+  state.target = target;
+  if (state.reduced || immediate) {
+    state.position = target;
+    state.velocity = 0;
+    state.liftIndex = target;
+    if (state.reduced) state.reveal = 0;
+  }
+  if (target !== state.index) {
+    state.index = target;
+    owner.callMethod('onDeckCommit', { identity: state.identity, index: target });
+  }
+  schedule(state, owner);
+}
+
+function end(state, owner, time, cancelled) {
+  var gesture = state.gesture;
+  if (!gesture) return;
+  state.gesture = null;
+  if (cancelled) {
+    state.blockTap = true;
+    state.target = gesture.startTarget;
+    state.velocity = 0;
+    schedule(state, owner);
+    return;
+  }
+  if (gesture.mode === 'horizontal') {
+    state.blockTap = true;
+    if (time - gesture.lastMove > 90) state.velocity = 0;
+    // Exponential deceleration projection, then velocity-aware spring handoff.
+    // Velocity is in cards/second; d = .996 projects roughly 249ms ahead.
+    var projected = state.position + state.velocity / 1000 * 0.996 / (1 - 0.996);
+    commit(state, owner, Math.round(projected), false);
+    return false;
+  }
+  // A pending tap or a vertical scroll resumes the interrupted spring as-is.
+  schedule(state, owner);
+}
+
+function touchWithId(touches, identifier) {
+  if (!touches) return null;
+  for (var index = 0; index < touches.length; index += 1) {
+    if (touches[index].identifier === identifier) return touches[index];
+  }
+  return null;
+}
+
+function touchStart(event, owner) {
+  var state = stateFor(owner);
+  var touches = event.touches;
+  if (!touches || touches.length !== 1) {
+    state.touchLocked = true;
+    end(state, owner, timestamp(event), true);
+    return;
+  }
+  if (state.touchLocked) return;
+  var touch = touches[0];
+  begin(state, owner, touch.pageX, touch.pageY, timestamp(event), 'touch', touch.identifier);
+}
+
+function touchMove(event, owner) {
+  var state = stateFor(owner);
+  if (!state.gesture || state.gesture.kind !== 'touch') return;
+  if (!event.touches || event.touches.length !== 1) {
+    state.touchLocked = true;
+    end(state, owner, timestamp(event), true);
+    return;
+  }
+  var touch = touchWithId(event.touches, state.gesture.identifier);
+  if (!touch) {
+    end(state, owner, timestamp(event), true);
+    return;
+  }
+  return move(state, owner, touch.pageX, touch.pageY, timestamp(event));
+}
+
+function touchEnd(event, owner) {
+  var state = stateFor(owner);
+  if (!event.touches || event.touches.length === 0) state.touchLocked = false;
+  if (!state.gesture || state.gesture.kind !== 'touch') return;
+  var touch = touchWithId(event.changedTouches, state.gesture.identifier);
+  if (!touch) return;
+  return end(state, owner, timestamp(event), false);
+}
+
+function touchCancel(event, owner) {
+  var state = stateFor(owner);
+  state.touchLocked = !!(event.touches && event.touches.length);
+  end(state, owner, timestamp(event), true);
+  state.blockTap = true;
+}
+
+function cancel(event, owner) {
+  var state = stateFor(owner);
+  end(state, owner, timestamp(event), true);
+  state.blockTap = true;
+}
+
+function mouseStart(event, owner) {
+  var state = stateFor(owner);
+  begin(state, owner, event.pageX, event.pageY, timestamp(event), 'mouse', event.pointerId);
+}
+
+function mouseMove(event, owner) {
+  var state = stateFor(owner);
+  if (!state.gesture || state.gesture.kind !== 'mouse') return;
+  return move(state, owner, event.pageX, event.pageY, timestamp(event));
+}
+
+function mouseEnd(event, owner) {
+  var state = stateFor(owner);
+  if (!state.gesture || state.gesture.kind !== 'mouse') return;
+  return end(state, owner, timestamp(event), false);
+}
+
+function toggleFlip(state, owner, immediate, frontOnly) {
+  var index = centeredIndex(state);
+  if (index < 0) return;
+  var flip = flipFor(state, index);
+  flip.target = frontOnly ? 0 : (flip.target === 0 ? 180 : 0);
+  if (state.reduced || immediate) {
+    flip.angle = flip.target;
+    flip.velocity = 0;
+    if (state.reduced) state.reveal = 0;
+  }
+  if (immediate) state.focusRequested = true;
+  schedule(state, owner);
+}
+
+function tap(event, owner) {
+  var state = stateFor(owner);
+  if (!state.alive || state.blockTap || state.touchLocked || state.gesture) return;
+  toggleFlip(state, owner, false, false);
+}
+
+function scroll(event, owner) {
+  var state = stateFor(owner);
+  var dataset = event.currentTarget && event.currentTarget.dataset;
+  if (dataset && +dataset.index !== centeredIndex(state)) return;
+  state.lastScroll = timestamp(event);
+  state.blockTap = true;
+  if (state.gesture && state.gesture.mode !== 'vertical') {
+    state.target = state.gesture.startTarget;
+    state.gesture.mode = 'vertical';
+    state.velocity = 0;
+    schedule(state, owner);
+  }
+}
+
+function keydown(event, owner) {
+  var state = stateFor(owner);
+  if (!state.alive || !state.count) return;
+  if (state.gesture) end(state, owner, timestamp(event), true);
+  state.blockTap = true;
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    var direction = event.key === 'ArrowLeft' ? -1 : 1;
+    commit(state, owner, state.index + direction, true);
+  } else if (!event.repeat && (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape')) {
+    toggleFlip(state, owner, true, event.key === 'Escape');
+  }
+  return false;
+}
+
+function dispose(owner) {
+  var state = stateFor(owner);
+  state.alive = false;
+  state.gesture = null;
+  state.refs = [];
+  state.visible = [];
+}
+
+module.exports = {
+  observe: observe,
+  touchStart: touchStart,
+  touchMove: touchMove,
+  touchEnd: touchEnd,
+  touchCancel: touchCancel,
+  tap: tap,
+  scroll: scroll,
+  mouseStart: mouseStart,
+  mouseMove: mouseMove,
+  mouseEnd: mouseEnd,
+  cancel: cancel,
+  keydown: keydown,
+  dispose: dispose
+};

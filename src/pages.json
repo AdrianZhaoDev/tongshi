@@ -3,13 +3,15 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "通识卡 · 项目导览"
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "通识卡 · 每日一问"
       }
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#F9F9F7",
-    "backgroundColor": "#F9F9F7"
+    "navigationBarTitleText": "通识卡",
+    "navigationBarBackgroundColor": "#FFF1DD",
+    "backgroundColor": "#F4E9DB"
   }
 }

@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN" class="cards-preview" data-palette="apricot">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:,">
+  <title>通识卡 · Swiper Cards 交互预览</title>
+  <link rel="stylesheet" href="./node_modules/swiper/swiper-bundle.min.css">
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    /* Hallmark · component: card-deck · genre: modern-minimal · theme: existing warm glass
+     * pre-emit critique: P5 H4 E4 S5 R5 V4; official Swiper Cards, no decorative underlays.
+     */
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; overflow-x: clip; }
+    body {
+      color: var(--color-ink);
+      background: radial-gradient(ellipse at 50% 0%, var(--color-background-top), var(--color-background) 75%);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.5;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button, a { touch-action: manipulation; }
+    :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
+    [hidden] { display: none !important; }
+    .symbols { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .icon { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .preview-toolbar {
+      width: min(100%, 460px);
+      margin: 0 auto;
+      padding: var(--space-md) var(--space-lg) 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-sm);
+    }
+    .preview-label { color: var(--color-muted); font-size: 0.75rem; }
+    .scenario-switch {
+      display: flex;
+      padding: var(--space-xs);
+      gap: var(--space-xs);
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-control);
+    }
+    .scenario-button {
+      min-height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: var(--radius-control);
+      color: var(--color-muted);
+      background: none;
+      font-size: 0.8125rem;
+      white-space: nowrap;
+    }
+    .scenario-button[aria-pressed="true"] {
+      background: var(--color-surface-solid);
+      color: var(--color-ink);
+      box-shadow: 0 2px 6px var(--color-shadow);
+    }
+    .palette-picker { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-sm); width: 100%; }
+    .palette-button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: none; color: var(--color-muted); font-size: 0.75rem; white-space: nowrap; }
+    .palette-button[aria-pressed="true"] { background: var(--color-surface-solid); color: var(--color-ink); border-color: var(--color-accent); }
+    .palette-swatch { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; }
+    [data-palette-choice="apricot"] .palette-swatch { background: var(--color-choice-apricot); }
+    [data-palette-choice="sage"] .palette-swatch { background: var(--color-choice-sage); }
+    [data-palette-choice="blue"] .palette-swatch { background: var(--color-choice-blue); }
+    .app-surface {
+      width: min(100%, 420px);
+      min-height: min(780px, calc(100svh - 80px));
+      margin: 0 auto;
+      padding: var(--space-lg) 28px max(var(--space-lg), env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+    .app-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+    .brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-sm); min-width: 0; }
+    .brand-name { font-family: var(--font-display); font-size: 1.375rem; font-weight: 750; letter-spacing: -0.035em; }
+    .age-label { color: var(--color-muted); font-size: 0.75rem; white-space: nowrap; }
+    .deck-stage { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; padding: var(--space-sm) 0; }
+    .swiper {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: clamp(480px, 62svh, 560px);
+      touch-action: pan-y;
+      border-radius: var(--radius-card);
+    }
+    .swiper-cards .swiper-slide { overflow: visible; border-radius: var(--radius-card); }
+    .swiper-slide-shadow { border-radius: var(--radius-card); pointer-events: none; }
+    .card-rotator { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
+    .card-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+      padding: var(--space-lg) 22px var(--space-md);
+      border: 1px solid var(--color-highlight);
+      border-radius: var(--radius-card);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-card);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transform: translateZ(1px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    .card-back { background: var(--color-surface-back); transform: rotateY(180deg) translateZ(1px); }
+    .card-meta { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+    .scene-label {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: 6px 10px;
+      border-radius: var(--radius-control);
+      background: var(--color-accent-soft);
+      color: var(--color-accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .card-number { color: var(--color-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+    .card-reading { margin: auto 0; }
+    .card-title { margin: 0 0 var(--space-md); font-size: clamp(1.4375rem, 6.4vw, 1.6875rem); font-weight: 750; line-height: 1.3; letter-spacing: -0.025em; overflow-wrap: anywhere; }
+    .section-label { display: block; color: var(--color-accent); font-size: 0.75rem; font-weight: 650; margin-bottom: var(--space-sm); }
+    .question { margin: 0; font-size: 1.1875rem; line-height: 1.65; font-weight: 650; }
+    .action { margin: var(--space-md) 0 0; padding-top: var(--space-md); border-top: 1px solid var(--color-line); font-size: 0.9375rem; line-height: 1.7; }
+    .action strong { font-weight: 650; }
+    .safety { margin: var(--space-md) 0 0; color: var(--color-muted); font-size: 0.75rem; line-height: 1.7; }
+    .face-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      flex-shrink: 0;
+      min-height: 44px;
+      width: 100%;
+      padding: 0 var(--space-xs);
+      border: 0;
+      border-top: 1px solid var(--color-line);
+      background: none;
+      color: var(--color-muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+    .theory { margin: 0; font-size: 1rem; line-height: 1.8; }
+    .response-note { margin: var(--space-lg) 0 0; padding: var(--space-md); background: var(--color-accent-soft); border-radius: 16px; font-size: 0.875rem; line-height: 1.7; }
+    .app-footer { display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); }
+    .history-slot { min-height: 44px; display: grid; place-items: center; }
+    .history-hint { display: inline-flex; align-items: center; gap: var(--space-xs); min-height: 44px; padding: 0 var(--space-sm); border: 0; background: none; color: var(--color-accent); font-size: 0.8125rem; white-space: nowrap; }
+    .subscribe {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      min-height: 48px;
+      padding: 0 var(--space-lg);
+      border: 0;
+      border-radius: var(--radius-control);
+      background: var(--color-ink);
+      color: var(--color-accent-ink);
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .preview-note { max-width: 420px; margin: 0 auto var(--space-lg); padding: 0 var(--space-lg); color: var(--color-muted); font-size: 0.75rem; text-align: center; line-height: 1.8; }
+    .load-error { margin: var(--space-lg) auto; width: min(90%, 400px); padding: var(--space-md); border: 1px solid var(--color-danger); border-radius: 12px; color: var(--color-danger); background: var(--color-surface-solid); font-size: 0.875rem; }
+    .swiper:not(.swiper-initialized) { visibility: hidden; }
+    @media (hover: hover) and (pointer: fine) {
+      .palette-button:hover { background: var(--color-accent-soft); color: var(--color-accent); }
+      .scenario-button:hover, .face-toggle:hover, .history-hint:hover { background: var(--color-accent-soft); color: var(--color-accent); }
+    }
+    @media (max-width: 359px) {
+      .preview-toolbar { justify-content: center; padding-inline: var(--space-md); }
+      .app-surface { padding-inline: 26px; }
+      .card-face { padding-inline: var(--space-md); }
+      .question { font-size: 1.125rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+      .card-rotator { transform: none !important; }
+      .card-face { transform: none; }
+      .card-face[aria-hidden="true"] { visibility: hidden; }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .card-face { background: var(--color-surface-solid); }
+    }
+    @media (prefers-contrast: more) {
+      .card-face, .scenario-switch { border-color: var(--color-ink); }
+      .age-label, .card-number, .safety, .face-toggle, .preview-note { color: var(--color-ink); }
+    }
+  </style>
+</head>
+<body>
+  <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="moon" viewBox="0 0 24 24"><path d="M20.6 13.2A8.6 8.6 0 0 1 10.8 3.4a8.6 8.6 0 1 0 9.8 9.8Z"/></symbol>
+      <symbol id="ear" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 4-4 4-4 7a4 4 0 0 1-8 0M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4"/></symbol>
+      <symbol id="smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 3 4 3 4-3 4-3M8 9h.01M16 9h.01"/></symbol>
+      <symbol id="flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 1 1 0 6M4 4v5h5"/></symbol>
+      <symbol id="arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    </defs>
+  </svg>
+
+  <aside class="preview-toolbar" aria-label="预览状态切换">
+    <span class="preview-label">Swiper Cards · 交互预览</span>
+    <div class="scenario-switch" role="group" aria-label="选择历史状态">
+      <button type="button" class="scenario-button" data-mode="solo" aria-pressed="false">无历史</button>
+      <button type="button" class="scenario-button" data-mode="history" aria-pressed="true">有历史</button>
+    </div>
+    <div class="palette-picker" role="group" aria-label="选择预览配色">
+      <button type="button" class="palette-button" data-palette-choice="apricot" aria-pressed="true"><span class="palette-swatch" aria-hidden="true"></span>暖杏米白</button>
+      <button type="button" class="palette-button" data-palette-choice="sage" aria-pressed="false"><span class="palette-swatch" aria-hidden="true"></span>雾绿白瓷</button>
+      <button type="button" class="palette-button" data-palette-choice="blue" aria-pressed="false"><span class="palette-swatch" aria-hidden="true"></span>月光蓝灰</button>
+    </div>
+  </aside>
+
+  <main class="app-surface">
+    <header class="app-header">
+      <div class="brand"><span class="brand-name">通识卡</span><span class="age-label">3–5 岁</span></div>
+    </header>
+    <section class="deck-stage" aria-label="每日亲子卡片">
+      <div class="swiper" id="card-deck" tabindex="0" aria-label="卡片堆。右滑看历史，左滑返回较新卡片。也可用左右方向键切换。">
+        <div class="swiper-wrapper"></div>
+      </div>
+    </section>
+    <footer class="app-footer">
+      <div class="history-slot">
+        <button type="button" class="history-hint" id="history-hint" hidden>
+          <span>右滑看历史</span><svg class="icon" aria-hidden="true"><use href="#arrow"/></svg>
+        </button>
+      </div>
+      <button type="button" class="subscribe" disabled aria-describedby="preview-note">
+        <svg class="icon" aria-hidden="true"><use href="#bell"/></svg><span>订阅每日提醒</span>
+      </button>
+    </footer>
+  </main>
+  <p class="preview-note" id="preview-note">示例内容为未审草稿 · 订阅仅展示，未接入微信<br>可拖动卡片，也可聚焦卡片后使用 ← → 键</p>
+  <p class="load-error" id="load-error" role="alert" hidden>组件未加载。请在项目目录执行 npm ci，再重新打开此文件。</p>
+  <noscript><p class="load-error">请开启 JavaScript 后查看卡片交互。</p></noscript>
+
+  <script src="./node_modules/swiper/swiper-bundle.min.js"></script>
+  <script>
+    // 交互示例：前两张代表往日已看的日卡，最后一张始终是今日卡；不提供未来卡片。
+    const previewCards = [
+      {
+        id: 'breathing', scene: '睡前床头', icon: 'moon', title: '会跳舞的小肚子',
+        question: '把小手轻轻放在肚子上。像平常一样呼吸，你发现小手怎么动？',
+        action: '一起观察几次自然呼吸。说一说肚子有没有轻轻起伏，不需要数拍。',
+        safety: '不屏气，不刻意深呼吸；不舒服或不想玩就停下。',
+        theory: '呼吸时，膈肌和胸廓的运动会改变胸腔容积。腹部也可能随呼吸轻轻起伏。这里邀请孩子描述自己的感觉，不要求所有人出现一样的动作，也不能据此判断健康或发育。',
+        response: '孩子没发现变化？家长可以先描述自己的感受，再邀请一起看看；也可以今天不玩。'
+      },
+      {
+        id: 'sounds', scene: '家中安静处', icon: 'ear', title: '耳朵听见了什么',
+        question: '我们安静听一会儿。你发现了什么声音？它让你想到什么？',
+        action: '在安全、安静的室内听约 10 秒。各说一个声音，再一起找找可能的来源。',
+        safety: '保持正常音量，不闭眼走路，不在过马路时进行。',
+        theory: '耳朵接收声音，我们结合已有经验猜测声音的来源。相似的声音可能来自不同物体，所以猜测不一定就是事实。这个小互动只练习描述与一起观察，不承诺提升专注力或治疗作用。',
+        response: '孩子暂时没听见？家长轻轻翻一页纸，让声音来源可见，再邀请孩子描述。'
+      },
+      {
+        id: 'expressions', scene: '洗脸照镜子', icon: 'smile', title: '眉毛变变变',
+        question: '对着镜子，试着做一个开心的表情。你的眉毛和嘴角有什么变化？',
+        action: '各做一个表情，轮流描述看见的变化。不想模仿时，说说感受也可以。',
+        safety: '先放下牙刷；不评价表情美丑，也不强迫孩子表演。',
+        theory: '表情可以提供情绪线索，但一种表情不只对应一种感受。皱眉也可能是认真或困惑。我们可以先描述看见的变化，再问对方的感受，而不是只凭表情替他下结论。',
+        response: '孩子做了不同的表情？可以说：“我看到你的嘴角这样动，你想表达什么？”不需要一个标准答案。'
+      }
+    ];
+    const deckElement = document.getElementById('card-deck');
+    const wrapper = deckElement.querySelector('.swiper-wrapper');
+    const historyHint = document.getElementById('history-hint');
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    const flips = new Map();
+    let deck;
+    let mode = 'history';
+
+    function makeSlide(card, index) {
+      const article = document.createElement('article');
+      article.className = 'swiper-slide';
+      article.dataset.cardId = card.id;
+      article.innerHTML = `
+        <div class="card-rotator">
+          <div class="card-face card-front" data-face="front">
+            <div class="card-meta">
+              <span class="scene-label"><svg class="icon" aria-hidden="true"><use href="#${card.icon}"/></svg>${card.scene}</span>
+              <span class="card-number">${String(index + 1).padStart(2, '0')}</span>
+            </div>
+            <div class="card-reading">
+              <h1 class="card-title">${card.title}</h1>
+              <span class="section-label">开口这样问</span>
+              <p class="question">“${card.question}”</p>
+              <p class="action"><strong>随手做</strong>　${card.action}</p>
+              <p class="safety">${card.safety}</p>
+            </div>
+            <button type="button" class="face-toggle" aria-label="查看${card.title}的详细说明"><svg class="icon" aria-hidden="true"><use href="#flip"/></svg>查看说明</button>
+          </div>
+          <div class="card-face card-back" data-face="back" aria-hidden="true" inert>
+            <div class="card-meta"><span class="scene-label">仅供家长备课</span><span class="card-number">${String(index + 1).padStart(2, '0')}</span></div>
+            <div class="card-reading">
+              <h2 class="card-title">为什么这样聊</h2>
+              <p class="theory">${card.theory}</p>
+              <p class="response-note">${card.response}</p>
+            </div>
+            <button type="button" class="face-toggle" aria-label="返回${card.title}的提问"><svg class="icon" aria-hidden="true"><use href="#flip"/></svg>翻回正面</button>
+          </div>
+        </div>`;
+      flips.set(article, { angle: 0, velocity: 0, target: 0, frame: 0 });
+      return article;
+    }
+
+    function resetFlip(slide) {
+      const state = flips.get(slide);
+      if (!state) return;
+      cancelAnimationFrame(state.frame);
+      state.angle = state.velocity = state.target = state.frame = 0;
+      slide.querySelector('.card-rotator').style.transform = '';
+      setFace(slide, false);
+    }
+
+    function setFace(slide, back) {
+      slide.dataset.side = back ? 'back' : 'front';
+      for (const face of slide.querySelectorAll('[data-face]')) {
+        const hidden = (face.dataset.face === 'back') !== back;
+        face.setAttribute('aria-hidden', String(hidden));
+        face.inert = hidden;
+      }
+    }
+
+    // 内层正反面单独使用可重定向的物理弹簧，不覆盖 Swiper 管理的外层 transform。
+    function flipCard(slide, keyboard = false) {
+      const state = flips.get(slide);
+      state.target = state.target === 0 ? 180 : 0;
+      setFace(slide, state.target === 180);
+      cancelAnimationFrame(state.frame);
+      const rotator = slide.querySelector('.card-rotator');
+      if (reducedMotion.matches || keyboard) {
+        state.angle = state.target;
+        state.velocity = 0;
+        rotator.style.transform = `rotateY(${state.angle}deg)`;
+        if (keyboard) slide.querySelector('[data-face][aria-hidden="false"] button').focus({ preventScroll: true });
+        return;
+      }
+      let previous;
+      function tick(time) {
+        const dt = previous === undefined ? 1 / 60 : Math.min((time - previous) / 1000, 0.032);
+        previous = time;
+        const acceleration = 230 * (state.target - state.angle) - 30 * state.velocity;
+        state.velocity += acceleration * dt;
+        state.angle += state.velocity * dt;
+        if (Math.abs(state.target - state.angle) < 0.02 && Math.abs(state.velocity) < 0.1) {
+          state.angle = state.target;
+          state.velocity = 0;
+          state.frame = 0;
+        } else state.frame = requestAnimationFrame(tick);
+        rotator.style.transform = `rotateY(${state.angle}deg)`;
+      }
+      state.frame = requestAnimationFrame(tick);
+    }
+
+    function syncDeck(swiper) {
+      const index = swiper.activeIndex;
+      historyHint.hidden = index === 0;
+      for (let i = 0; i < swiper.slides.length; i++) {
+        const slide = swiper.slides[i];
+        slide.inert = i !== index;
+        slide.setAttribute('aria-hidden', String(i !== index));
+        resetFlip(slide);
+      }
+    }
+
+    function mountDeck(nextMode, index) {
+      if (deck) deck.destroy(true, true);
+      for (const state of flips.values()) cancelAnimationFrame(state.frame);
+      flips.clear();
+      mode = nextMode;
+      const published = mode === 'solo' ? previewCards.slice(-1) : previewCards;
+      wrapper.replaceChildren(...published.map(makeSlide));
+      document.querySelectorAll('[data-mode]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+      });
+      deck = new Swiper(deckElement, {
+        effect: reducedMotion.matches ? 'fade' : 'cards',
+        cardsEffect: { slideShadows: true, rotate: true, perSlideRotate: 2, perSlideOffset: 8 },
+        fadeEffect: { crossFade: true },
+        initialSlide: index ?? published.length - 1,
+        grabCursor: true,
+        loop: false,
+        rewind: false,
+        speed: reducedMotion.matches ? 120 : 300,
+        resistance: true,
+        resistanceRatio: 0.65,
+        watchOverflow: true,
+        threshold: 8,
+        preventClicks: true,
+        preventClicksPropagation: true,
+        a11y: { enabled: true, slideLabelMessage: '第 {{index}} 张，共 {{slidesLength}} 张' },
+        on: { init: syncDeck, slideChange: syncDeck }
+      });
+      deckElement.dataset.ready = 'true';
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(button => {
+      button.addEventListener('click', () => mountDeck(button.dataset.mode));
+    });
+    historyHint.addEventListener('click', event => {
+      if (!deck.isBeginning) deck.slidePrev(event.detail === 0 ? 0 : undefined);
+    });
+    deckElement.addEventListener('click', event => {
+      const slide = event.target.closest('.swiper-slide');
+      if (!slide || slide !== deck.slides[deck.activeIndex] || !deck.allowClick) return;
+      flipCard(slide, event.detail === 0);
+    });
+    deckElement.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (event.key === 'ArrowLeft' && !deck.isBeginning) deck.slidePrev(0);
+        if (event.key === 'ArrowRight' && !deck.isEnd) deck.slideNext(0);
+        if (event.target !== deckElement) deckElement.focus({ preventScroll: true });
+      } else if ((event.key === ' ' || event.key === 'Enter') && event.target === deckElement) {
+        event.preventDefault();
+        flipCard(deck.slides[deck.activeIndex], true);
+      } else if (event.key === 'Escape') resetFlip(deck.slides[deck.activeIndex]);
+    });
+    document.querySelectorAll('[data-palette-choice]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.documentElement.dataset.palette = button.dataset.paletteChoice;
+        document.querySelectorAll('[data-palette-choice]').forEach(choice => {
+          choice.setAttribute('aria-pressed', String(choice === button));
+        });
+      });
+    });
+    reducedMotion.addEventListener('change', () => mountDeck(mode, deck.activeIndex));
+    if (typeof Swiper === 'undefined') document.getElementById('load-error').hidden = false;
+    else mountDeck(mode);
+  </script>
+</body>
+</html>

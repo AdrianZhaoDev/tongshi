@@ -1,7 +1,7 @@
 {
   "name": "通识卡",
   "appid": "",
-  "description": "通识卡：专为家长设计的亲子通识对谈与打卡工具，当前为初始化项目导览",
+  "description": "通识卡：面向3–5岁家长的每日亲子微探究卡，本地草稿内容，未接入微信订阅消息",
   "versionName": "0.1.0",
   "versionCode": "100",
   "transformPx": false,
@@ -17,7 +17,7 @@
     "usingComponents": true
   },
   "h5": {
-    "title": "通识卡 · 项目导览",
+    "title": "通识卡 · 每日一问",
     "router": {
       "mode": "hash"
     }

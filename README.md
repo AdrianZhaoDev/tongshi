@@ -1,63 +1,55 @@
-# 通识卡
+# 通识卡 · 每日一问
 
-一款专为家长设计的亲子通识对谈与打卡工具。内置海量预设探究卡片与启发话术，帮助家长轻松应对孩子的“十万个为什么”。支持童言金句记录与打卡留痕，是您高质量陪伴的得力助手。
+面向 3–5 岁儿童家长的单页亲子微探究卡。采用已选定的「暖杏米白」配色：正面是提问、随手互动和必要安全提示，背面解释观察思路与边界。没有地图、账号、年龄选择、金句输入、打卡或底部导航。
 
-以上为用户确认的产品介绍，描述产品目标，并非当前初始化版本的功能清单。课程面向 3–12 岁儿童的家长，以每日 3 分钟真实对话为切口；实际实现范围如下。
+## 当前功能与边界
 
-## 当前交付
+- **每日固定一张**：按设备当地日历匹配 `src/domain/cards.ts` 的 `releaseOn`，同一天刷新不会换卡，不随机抽取、不以滑动解锁未来内容。
+- **只回看已看历史**：打开当日卡片即记为“看过”，不表示完成活动或掌握知识。右滑回看往日打开过的卡片；左滑返回较新的历史或今日。跳过的日期不会自动加入历史。
+- **立体卡堆**：历史卡在下层露边，支持跟手拖动、边界阻尼和回位；点击查看背面，垂直阅读不应触发切卡。页面不显示页码、卡库总数或演示切换按钮。
+- **本机保存**：仅使用 `tongshi:viewed-days:v1` 保存版本号、已看卡片 ID 和日期；不采集儿童姓名、文字、照片、语音，不上传或同步。不同设备、H5 与微信小程序之间不互通，数据会保留至平台清理或用户清理应用数据。
+- **失败不冒充成功**：历史损坏或读取失败时保留原数据、不覆盖；可继续阅读按日期确定的今日卡片，并重试读取。写入失败明确提示本次历史未保存。
+- **内容仍为草稿**：内置 12 张待人工审校的内容，草稿排期为 **2026-11-06 至 2026-11-17**。这是本地运行与验收排期，不是已签发或线上发布记录；12 张不等于连续 14 天的完整内容。过了排期不循环旧卡、不假称有新卡，只显示真实已看历史或空状态。
+- **微信订阅未接入**：按钮明确不可用，不模拟授权、定时发送或成功通知。真实触达需要自有微信 AppID、可用模板、用户有效授权和服务端发送配置；密钥不得放在客户端。
 
-- uni-app + Vue 3 + TypeScript 工程，支持 H5 预览与微信小程序构建。
-- 项目导览首页，展示五大主题及对应探究篇章；可切换主题查看内容。
-- `AGENTS.md`、分类产品与工程规范、五个专项 AI skills。
-- 用户白皮书的可追溯文本副本与已识别风险。
+内容 ID 和日期是已看历史的关联依据；扩充课程请增加新 ID 与明确日期，不任意改变已有记录的含义。正式发布前仍需科学事实、儿童安全和编辑人工审校，不能因代码构建通过而批准内容。
 
-**尚未实现的产品规划**：正式课程卡片、登录、今日打卡、成长手账、关卡地图、在线 AI 追问、海报生成、支付和后端。首页不展示伪造的儿童身份、课程进度或运营数据。预置 skills 用于 AI 辅助开发和内容制作，不等于在线 AI 功能。
+H5 运行框架可能另行写入本地设备标识；应用的已看历史与该框架行为分开，正式发布前仍须核验平台与框架的隐私要求。
 
-## 本地运行
+## 开发与验证
 
-环境：Node.js 22（见 `.nvmrc`）、npm；只维护 `package-lock.json`。
+使用 Node.js 22、npm：
 
 ```bash
 npm ci
 npm run dev:h5
 ```
 
-按终端实际输出地址打开浏览器。停止服务使用 `Ctrl+C`。
+打开终端输出的 H5 地址。微信开发使用 `npm run dev:mp-weixin`，将 `dist/dev/mp-weixin` 导入微信开发者工具；`src/manifest.json` 中的 AppID 保持为空，请使用自有测试号或授权 AppID，不在仓库保存 AppSecret。
 
 ```bash
+npm test
 npm run type-check
 npm run build:h5
 npm run build:mp-weixin
 ```
 
-H5 产物：`dist/build/h5`。微信小程序产物：`dist/build/mp-weixin`。
+- H5 产物：`dist/build/h5`；微信产物：`dist/build/mp-weixin`。
+- 日期与已看历史回归测试使用 Node 内置测试工具和现有 TypeScript，不依赖浏览器、真实用户数据或网络。
+- H5 的 `getStorageSync` 会把底层读取异常折叠为空串；页面先检查存储键，已有键却不可读或读到空值时禁止覆盖，而不是当作新设备初始化。
+- 卡堆使用 uni-app Options API 与 WXS 视图层脚本，而不是在小程序内嵌网页。目标为 H5 与微信 **WebView 渲染模式、基础库 2.14.2 及以上**；开发者工具和真机仍须单独验收。
+- H5 使用浏览器基础字号，不让正文随视口宽度放大；系统减少动态效果偏好会传入卡堆。微信通过 [`page-meta`](https://developers.weixin.qq.com/miniprogram/dev/component/page-meta.html) 的 `root-font-size="system"` 配置系统字号，具体触控、字号、动态偏好与读屏效果仍须真机验收。
+- 日历依据设备时间，不是可信服务端发布时钟；设备改时区或日期可能改变当日内容，但不会删除未来日期的本机历史。
 
-### 微信开发者工具
+## 代码入口
 
-```bash
-npm run dev:mp-weixin
-```
+- `src/pages/index/index.vue`：唯一主页、日期切换、本机历史读写与错误提示。
+- `src/components/DailyCardDeck.vue`、`card-deck.css`、`card-deck.wxs`：卡片正反面、共享样式及视图层手势与动效。保持标准 WXS 脚本声明，样式外置以避免 H5 样式热更新重复解析脚本。
+- `src/domain/cards.ts`：明确日期的内容草稿；[内容文档](docs/content/first-version-plan.md)保留审校边界。
+- `src/domain/daily-feed.ts`：纯日历与已看历史规则。
+- `tokens.css`：正式暖杏色变量；H5 与微信使用兼容的 sRGB 色值。
+- `src/static/licenses/swiper.txt`：移植的 Cards 数学所适用的 MIT 许可，随两端静态资源分发。
 
-导入 `dist/dev/mp-weixin`。微信 AppID 在 `src/manifest.json` 的 `mp-weixin.appid` 配置；初始化留空，不冒用真实项目身份。使用自有测试号/已授权 AppID 完成开发者工具预览和真机验证。DCloud AppID 与微信 AppID 是不同标识，按实际平台要求配置。AppSecret 不能写入此工程。
+## 原始交互预览
 
-产物构建通过不等于微信真机验收或正式上线。发布还需要真实账号、平台审核和必要的隐私配置。
-
-## 使用 AI 开发
-
-每次新会话先让 AI 读取 [AGENTS.md](AGENTS.md)，再从 [文档导航](docs/README.md) 按任务选择规范。示例：
-
-> 先阅读 AGENTS.md 和 `.agents/skills/inquiry-card/SKILL.md`。为 3–5 岁制作一张“影子为什么会变长”的微探究卡片草稿，提供事实依据、双向容错话术、安全检查和待审清单。不要标为已发布。
-
-> 先阅读 AGENTS.md 和 `.agents/skills/uniapp-page/SKILL.md`。按照已确认的需求实现页面，复用项目现有设计 token，运行类型检查和双端构建，并实际验证交互。
-
-五个专项入口：`curriculum-planning`、`inquiry-card`、`content-review`、`uniapp-page`、`parent-poster`，统一位于 `.agents/skills/`。是否自动发现取决于使用的 AI 工具；不支持时显式读取 `SKILL.md` 即可，不需要在线 API Key。生成课程须经独立人工审校，内容安全不得由 AI 自行签发。
-
-## 阅读顺序
-
-1. [AI 总约束](AGENTS.md)
-2. [分类文档索引](docs/README.md)
-3. [产品范围](docs/product/overview.md)与[路线图/待决策事项](docs/product/roadmap.md)
-4. [白皮书来源及风险](docs/reference/provenance.md)
-5. [工程验证清单](docs/engineering/verification.md)
-
-技术依据：[DCloud CLI 文档](https://uniapp.dcloud.net.cn/quickstart-cli.html)及[官方 Vue 3 TypeScript 模板](https://github.com/dcloudio/uni-preset-vue/tree/vite-ts)。依赖版本以本仓库锁文件为准，不混用不同发行版编译器。
+安装依赖后仍可打开 [preview-cards.html](preview-cards.html) 对照原始三套配色与官方 [Swiper Cards](https://swiperjs.com/demos/255-effect-cards/core.html)。该文件中的历史为演示状态，不是真实阅读记录；Swiper `14.0.1` 仅作为预览开发依赖，未把 DOM 引擎引入微信代码。
