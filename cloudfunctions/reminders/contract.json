@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "functionName": "reminders",
+  "timezone": "Asia/Shanghai",
+  "sendHour": 9,
+  "sendMinute": 0,
+  "frequencies": [
+    { "id": "daily", "days": 1, "label": "每日" },
+    { "id": "every2days", "days": 2, "label": "每 2 日" },
+    { "id": "weekly", "days": 7, "label": "每周" }
+  ]
+}

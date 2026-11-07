@@ -1,10 +1,11 @@
-/* Hallmark · component: dated-card-deck · genre: modern-minimal · theme: warm-apricot
+/* Hallmark · component: daily-card-deck · genre: modern-minimal · theme: warm-apricot
  * Direct-manipulation Cards depth and independent flip; existing system tokens only. */
 .daily-card-deck {
   position: relative;
   width: 100%;
   min-width: 0;
-  height: clamp(30rem, 62vh, 35rem);
+  height: clamp(22rem, calc(100vh - 210px), 52rem);
+  height: clamp(22rem, calc(100svh - 210px), 52rem);
   font-family: var(--font-body);
   color: var(--color-ink);
   touch-action: pan-y;
@@ -99,6 +100,8 @@
   align-items: center;
   min-width: 0;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .deck-scene {
@@ -115,6 +118,12 @@
   font-weight: 600;
   line-height: 1.5;
 }
+.deck-practice-tag {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 
 .deck-icon {
   display: block;
@@ -195,6 +204,19 @@
   font-size: 1rem;
   line-height: 1.8;
 }
+.deck-practice {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line);
+}
+
+.deck-practice-copy {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
 
 .deck-face-toggle {
   display: flex;

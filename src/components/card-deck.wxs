@@ -162,7 +162,7 @@ function paint(state, owner) {
     visible.push(index);
     var progress = clamp(state.position - index, -4, 4);
     var absolute = Math.abs(progress);
-    var rotate = -2 * progress;
+    var rotate = 2 * progress;
     var offset = 8 - absolute * 0.75;
     var scale = 1;
     var y = 0;
@@ -171,16 +171,16 @@ function paint(state, owner) {
     // it merely because velocity changed sign would visibly pop the Cards lift.
     if (!state.reduced && index === state.liftIndex && absolute > 0 && absolute < 1) {
       var lift = Math.pow(1 - Math.abs((absolute - 0.5) / 0.5), 0.5);
-      rotate += -28 * progress * lift;
+      rotate += 28 * progress * lift;
       scale = 1 - 0.5 * lift * absolute;
       offset += 96 * lift;
       y = -25 * lift * absolute;
     }
-    var x = -offset * progress;
+    var x = offset * progress;
     if (state.reduced) {
       rotate = 0;
       z = 0;
-      if (held(state) && index === state.liftIndex) x = -100 * progress;
+      if (held(state) && index === state.liftIndex) x = 100 * progress;
     }
     var moving = Math.abs(state.target - state.position) > 0.001 || Math.abs(state.velocity) > 0.008 || held(state);
     refs.plane.setStyle({
@@ -364,6 +364,7 @@ function begin(state, owner, x, y, time, kind, identifier) {
     mode: 'pending',
     x: x,
     y: y,
+    dx: 0,
     lastTime: time,
     lastMove: time,
     startPosition: state.position,
@@ -393,7 +394,8 @@ function move(state, owner, x, y, time) {
     if (ax <= ay * 1.1) return;
     gesture.mode = 'horizontal';
   }
-  var raw = gesture.startPosition - dx / state.width;
+  gesture.dx = dx;
+  var raw = gesture.startPosition + dx / state.width;
   var position = rubber(raw, 0, state.count - 1);
   var elapsed = clamp((time - gesture.lastTime) / 1000, 0.004, 0.08);
   var sample = (position - gesture.lastPosition) / elapsed;
@@ -404,6 +406,14 @@ function move(state, owner, x, y, time) {
   gesture.lastMove = time;
   schedule(state, owner);
   return false;
+}
+
+function notifyBoundary(state, owner, direction) {
+  owner.callMethod('onDeckBoundary', {
+    identity: state.identity,
+    index: state.index,
+    direction: direction
+  });
 }
 
 function commit(state, owner, target, immediate) {
@@ -436,6 +446,11 @@ function end(state, owner, time, cancelled) {
   if (gesture.mode === 'horizontal') {
     state.blockTap = true;
     if (time - gesture.lastMove > 90) state.velocity = 0;
+    if (gesture.startTarget === 0 && gesture.dx < 0 && state.position < 0) {
+      notifyBoundary(state, owner, 'older');
+    } else if (gesture.startTarget === state.count - 1 && gesture.dx > 0 && state.position > state.count - 1) {
+      notifyBoundary(state, owner, 'newer');
+    }
     // Exponential deceleration projection, then velocity-aware spring handoff.
     // Velocity is in cards/second; d = .996 projects roughly 249ms ahead.
     var projected = state.position + state.velocity / 1000 * 0.996 / (1 - 0.996);
@@ -563,7 +578,9 @@ function keydown(event, owner) {
   state.blockTap = true;
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     var direction = event.key === 'ArrowLeft' ? -1 : 1;
-    commit(state, owner, state.index + direction, true);
+    var next = state.index + direction;
+    if (next < 0 || next >= state.count) notifyBoundary(state, owner, direction < 0 ? 'older' : 'newer');
+    commit(state, owner, next, true);
   } else if (!event.repeat && (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape')) {
     toggleFlip(state, owner, true, event.key === 'Escape');
   }

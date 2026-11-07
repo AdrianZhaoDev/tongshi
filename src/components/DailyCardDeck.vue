@@ -6,7 +6,7 @@
     :change:model="cardDeck.observe"
     tabindex="0"
     role="region"
-    aria-label="亲子卡片。右滑看已读历史，左滑返回较新卡片；左右方向键切换，回车或空格翻面。"
+    aria-label="亲子卡片。左滑或左方向键看已领取历史，右滑或右方向键看较新领取的卡片；回车或空格翻面。"
     @touchstart="cardDeck.touchStart"
     @touchmove="cardDeck.touchMove"
     @touchend="cardDeck.touchEnd"
@@ -16,7 +16,7 @@
     <view class="deck-viewport">
       <view
         v-for="(entry, index) in items"
-        :key="entry.day + ':' + entry.card.id + ':' + entry.card.releaseOn"
+        :key="entry.day + ':' + entry.card.id"
         class="deck-plane"
         :class="['deck-plane-' + index, { 'deck-plane-initial': index === safeIndex }]"
         :data-index="index"
@@ -49,6 +49,7 @@
                     />
                     <text>{{ entry.card.scene }}</text>
                   </view>
+                  <text v-if="entry.card.kind === 'weekend'" class="deck-practice-tag">周末实践</text>
                 </view>
                 <scroll-view
                   class="deck-reading"
@@ -63,7 +64,7 @@
                     <text class="deck-section-label">开口这样问</text>
                     <text class="deck-question">“{{ entry.card.front.question }}”</text>
                     <view class="deck-action">
-                      <text class="deck-action-label">随手做</text>
+                      <text class="deck-action-label">{{ entry.card.kind === 'weekend' ? '一起实践' : '随手做' }}</text>
                       <text>{{ entry.card.front.action }}</text>
                     </view>
                   </view>
@@ -78,7 +79,7 @@
                   :aria-label="'查看' + entry.card.title + '的说明'"
                 >
                   <image class="deck-icon" src="/static/icons/flip.svg" mode="aspectFit" aria-hidden="true" />
-                  <text>查看说明</text>
+                  <text>{{ entry.card.practice ? '材料与步骤' : '查看说明' }}</text>
                 </button>
               </view>
             </scroll-view>
@@ -99,6 +100,7 @@
               <view class="deck-face-content" :class="'deck-back-copy-' + index">
                 <view class="deck-meta">
                   <view class="deck-scene"><text>仅供家长备课</text></view>
+                  <text class="deck-practice-tag">草稿 · 待人工审校</text>
                 </view>
                 <scroll-view
                   class="deck-reading"
@@ -112,6 +114,16 @@
                     <text class="deck-title">为什么这样聊</text>
                     <text v-if="entry.card.back.domain" class="deck-section-label">{{ entry.card.back.domain }}</text>
                     <text class="deck-science">{{ entry.card.back.science }}</text>
+                    <view v-if="entry.card.practice" class="deck-practice">
+                      <text class="deck-section-label">材料</text>
+                      <text class="deck-practice-copy">{{ entry.card.practice.materials }}</text>
+                      <text class="deck-section-label">成人准备</text>
+                      <text class="deck-practice-copy">{{ entry.card.practice.preparation }}</text>
+                      <text class="deck-section-label">操作与等待</text>
+                      <text class="deck-practice-copy">{{ entry.card.practice.duration }}</text>
+                      <text class="deck-section-label">一起试试</text>
+                      <text v-for="(step, stepIndex) in entry.card.practice.steps" :key="stepIndex" class="deck-practice-copy">{{ stepIndex + 1 }}. {{ step }}</text>
+                    </view>
                   </view>
                 </scroll-view>
                 <text class="deck-safety">{{ entry.card.back.safety }}</text>
@@ -151,6 +163,10 @@ interface DeckPresentation {
 interface DeckCommit {
   identity: string
   index: number
+}
+
+interface DeckBoundary extends DeckCommit {
+  direction: 'older' | 'newer'
 }
 
 // Only the H5 adapter uses DOM types or these uni-app-injected view-layer APIs.
@@ -203,6 +219,7 @@ export default defineComponent({
   },
   emits: {
     change: (index: number) => Number.isInteger(index),
+    boundary: (direction: 'older' | 'newer') => direction === 'older' || direction === 'newer',
   },
   data() {
     return {
@@ -218,7 +235,7 @@ export default defineComponent({
       return Math.max(0, Math.min(this.items.length - 1, this.activeIndex))
     },
     itemIdentity(): string {
-      return JSON.stringify(this.items.map((entry) => [entry.day, entry.card.id, entry.card.releaseOn]))
+      return JSON.stringify(this.items.map((entry) => [entry.day, entry.card.id]))
     },
     deckModel(): { identity: string; count: number; index: number; reduced: boolean; revision: number; alive: boolean } {
       return {
@@ -256,6 +273,11 @@ export default defineComponent({
       if (!this.alive || payload.identity !== this.itemIdentity) return
       if (!Number.isInteger(payload.index) || payload.index < 0 || payload.index >= this.items.length) return
       this.$emit('change', payload.index)
+    },
+    onDeckBoundary(payload: DeckBoundary) {
+      if (!this.alive || payload.identity !== this.itemIdentity || payload.index !== this.safeIndex) return
+      if (payload.direction !== 'older' && payload.direction !== 'newer') return
+      this.$emit('boundary', payload.direction)
     },
     onDeckPresentation(payload: DeckPresentation) {
       if (!this.alive || payload.identity !== this.itemIdentity) return

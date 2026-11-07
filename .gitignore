@@ -8,3 +8,4 @@ unpackage/
 !.env.example
 .idea/
 project.private.config.json
+project.config.json

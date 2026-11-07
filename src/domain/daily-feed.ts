@@ -1,6 +1,5 @@
-export interface DatedCard {
+export interface IdentifiedCard {
   id: string
-  releaseOn: string
 }
 
 export interface ViewedDay {
@@ -8,7 +7,7 @@ export interface ViewedDay {
   cardId: string
 }
 
-export interface DailyEntry<T extends DatedCard> {
+export interface DailyEntry<T extends IdentifiedCard> {
   day: string
   card: T
 }
@@ -37,29 +36,21 @@ function assertId(value: unknown): asserts value is string {
   }
 }
 
-function indexCatalog<T extends DatedCard>(cards: readonly T[]) {
-  const byDay = new Map<string, T>()
+function indexCatalog<T extends IdentifiedCard>(cards: readonly T[]) {
   const byId = new Map<string, T>()
-
   for (const card of cards) {
     assertId(card.id)
-    assertDay(card.releaseOn)
     if (byId.has(card.id)) {
       throw new TypeError('Duplicate catalog card id')
     }
-    if (byDay.has(card.releaseOn)) {
-      throw new TypeError('Duplicate catalog release day')
-    }
-    byDay.set(card.releaseOn, card)
     byId.set(card.id, card)
   }
-
-  return { byDay, byId }
+  return byId
 }
 
 function readViewedDays(
   rows: readonly unknown[],
-  cardsById?: ReadonlyMap<string, DatedCard>,
+  cardsById?: ReadonlyMap<string, IdentifiedCard>,
   deduplicate = false,
 ): ViewedDay[] {
   const byDay = new Map<string, string>()
@@ -76,13 +67,9 @@ function readViewedDays(
     assertDay(row.day)
     assertId(row.cardId)
 
-    if (cardsById) {
-      const card = cardsById.get(row.cardId)
-      if (!card || card.releaseOn !== row.day) {
-        throw new TypeError('Invalid viewed history: card id and release day must match the catalog')
-      }
+    if (cardsById && !cardsById.has(row.cardId)) {
+      throw new TypeError('Invalid viewed history: unknown card id')
     }
-
     const existingId = byDay.get(row.day)
     const existingDay = byId.get(row.cardId)
     if (existingId !== undefined || existingDay !== undefined) {
@@ -104,20 +91,30 @@ function compareDays(a: { day: string }, b: { day: string }): number {
   return a.day < b.day ? -1 : a.day > b.day ? 1 : 0
 }
 
+const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// Visits use the same Beijing calendar day on every device and platform.
 export function dayKey(date: Date): string {
   if (!Number.isFinite(date.getTime())) {
     throw new RangeError('Cannot resolve an invalid date')
   }
-  const year = date.getFullYear()
+  const shifted = new Date(date.getTime() + BEIJING_OFFSET_MS)
+  const year = shifted.getUTCFullYear()
   if (year < 0 || year > 9999) {
     throw new RangeError('Calendar year must fit YYYY-MM-DD')
   }
 
-  return `${String(year).padStart(4, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return `${String(year).padStart(4, '0')}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`
 }
 
-export function parseViewedHistory(raw: unknown, cards: readonly DatedCard[]): ViewedDay[] {
-  const { byId } = indexCatalog(cards)
+export function nextDayStart(date: Date): Date {
+  dayKey(date)
+  return new Date((Math.floor((date.getTime() + BEIJING_OFFSET_MS) / DAY_MS) + 1) * DAY_MS - BEIJING_OFFSET_MS)
+}
+
+export function parseViewedHistory(raw: unknown, cards: readonly IdentifiedCard[]): ViewedDay[] {
+  const byId = indexCatalog(cards)
   if (raw === '' || raw === undefined || raw === null) {
     return []
   }
@@ -133,13 +130,9 @@ export function parseViewedHistory(raw: unknown, cards: readonly DatedCard[]): V
   return readViewedDays(raw.viewed, byId).sort(compareDays)
 }
 
-export function recordViewedDay(seen: readonly ViewedDay[], entry: DailyEntry<DatedCard>): ViewedDay[] {
+export function recordViewedDay(seen: readonly ViewedDay[], entry: DailyEntry<IdentifiedCard>): ViewedDay[] {
   assertDay(entry.day)
   assertId(entry.card.id)
-  assertDay(entry.card.releaseOn)
-  if (entry.day !== entry.card.releaseOn) {
-    throw new TypeError('Viewed day must match the card release day')
-  }
 
   const viewed = readViewedDays(seen, undefined, true)
   for (const row of viewed) {
@@ -155,29 +148,54 @@ export function recordViewedDay(seen: readonly ViewedDay[], entry: DailyEntry<Da
   return viewed.sort(compareDays)
 }
 
-export function resolveDailyFeed<T extends DatedCard>(
+export interface DailyFeed<T extends IdentifiedCard> {
+  today: DailyEntry<T> | null
+  entries: DailyEntry<T>[]
+  activeIndex: number
+}
+
+function mapHistory<T extends IdentifiedCard>(
+  byId: ReadonlyMap<string, T>,
+  viewed: readonly ViewedDay[],
+  currentDay: string,
+): DailyFeed<T> {
+  const entries = viewed.map(row => ({ day: row.day, card: byId.get(row.cardId)! })).sort(compareDays)
+  const todayIndex = entries.findIndex(entry => entry.day === currentDay)
+  return {
+    today: todayIndex < 0 ? null : entries[todayIndex]!,
+    entries,
+    activeIndex: todayIndex < 0 ? entries.length - 1 : todayIndex,
+  }
+}
+
+// Cloud callers only map acknowledged records. This function never claims a card.
+export function mapViewedFeed<T extends IdentifiedCard>(
   cards: readonly T[],
   seen: readonly ViewedDay[],
   now: Date,
-): { today: DailyEntry<T> | null; entries: DailyEntry<T>[]; activeIndex: number } {
-  const { byDay, byId } = indexCatalog(cards)
-  const currentDay = dayKey(now)
+): DailyFeed<T> {
+  const byId = indexCatalog(cards)
+  return mapHistory(byId, readViewedDays(seen, byId), dayKey(now))
+}
+
+// Local H5 preview only: the next visit day receives the first unseen catalog ID.
+export function resolveDailyFeed<T extends IdentifiedCard>(
+  cards: readonly T[],
+  seen: readonly ViewedDay[],
+  now: Date,
+): DailyFeed<T> {
+  const byId = indexCatalog(cards)
   const viewed = readViewedDays(seen, byId)
-  const entries: DailyEntry<T>[] = []
+  const currentDay = dayKey(now)
+  const feed = mapHistory(byId, viewed, currentDay)
+  if (feed.today) return feed
 
-  // Date-only keys sort by calendar day without assuming every day lasts 24 hours.
-  for (const row of viewed) {
-    if (row.day < currentDay) {
-      entries.push({ day: row.day, card: byId.get(row.cardId)! })
-    }
-  }
-  entries.sort(compareDays)
+  const viewedIds = new Set(viewed.map(row => row.cardId))
+  const nextCard = cards.find(card => !viewedIds.has(card.id))
+  if (!nextCard) return feed
 
-  const currentCard = byDay.get(currentDay)
-  const today = currentCard ? { day: currentDay, card: currentCard } : null
-  if (today) {
-    entries.push(today)
-  }
-
-  return { today, entries, activeIndex: entries.length - 1 }
+  const today = { day: currentDay, card: nextCard }
+  feed.entries.push(today)
+  feed.entries.sort(compareDays)
+  return { today, entries: feed.entries, activeIndex: feed.entries.indexOf(today) }
 }
