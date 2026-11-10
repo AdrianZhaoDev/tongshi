@@ -1,5 +1,13 @@
 # 变更记录
 
+## 未发布 · 2026-11-10
+
+### 微信小程序 AppID 配置
+
+- 配置本项目公开的小程序 AppID，保留 uni-app 自身的 `appid` 字段不变，不保存或使用 AppSecret。
+- 类型检查、微信生产构建和 `npm run wechat:project -- build` 通过；生成的本机项目配置指向 `dist/build/mp-weixin/` 与 `cloudfunctions/`，继续由 `.gitignore` 排除。
+- README 同步账号配置状态；真实云环境、订阅模板、云函数部署、内容人工审校及微信真机验收仍须单独完成，本地配置不表示已发布。
+
 ## 未发布 · 2026-11-07
 ### 亲子对话细节优化
 

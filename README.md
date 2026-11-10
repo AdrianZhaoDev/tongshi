@@ -27,7 +27,7 @@ npm ci
 npm run dev:mp-weixin
 ```
 
-先在 `src/manifest.json` 的 `mp-weixin.appid` 填写真实小程序 AppID。微信阅读与提醒均需复制 [`.env.example`](.env.example) 为 `.env.local`，填写公开的 `VITE_WECHAT_CLOUD_ENV`、部署云函数并创建集合后重新编译；阅读无需订阅消息授权。AppID、环境 ID 不是密钥，AppSecret、令牌不得进入前端或仓库。
+当前 `src/manifest.json` 的 `mp-weixin.appid` 已配置本项目的公开 AppID，更换小程序账号时须同步更新。微信阅读与提醒均需复制 [`.env.example`](.env.example) 为 `.env.local`，填写公开的 `VITE_WECHAT_CLOUD_ENV`、部署云函数并创建集合后重新编译；阅读无需订阅消息授权。AppID、环境 ID 不是密钥，AppSecret、令牌不得进入前端或仓库。
 
 另开终端执行 `npm run wechat:project -- dev`，在微信开发者工具中导入**仓库根目录**。生成的本机 `project.config.json` 指向 `dist/dev/mp-weixin/` 和 `cloudfunctions/`，已忽略；缺少真实 AppID 或对应构建目录时命令会失败，不生成假配置。使用构建产物时先运行 `npm run build:mp-weixin`，再运行 `npm run wechat:project -- build`。
 
@@ -57,7 +57,7 @@ npm run build:mp-weixin
 
 首次上线请按 [微信小程序上线操作手册](docs/wechat-deployment.md) 执行：包含对应网站、账号与 AppID、开发者工具导入、云环境、数据库、云函数部署、订阅模板、定时器、真机验收和审核发布的逐步操作。下方为配置速查。
 
-以下为操作说明，**本次未创建资源、部署、发布或发送真实消息**。仓库没有真实 AppID、云环境或模板配置，不能据本地回归宣称线上可用。
+以下为操作说明，**本次未创建资源、部署、发布或发送真实消息**。仓库已配置公开 AppID，但仍无真实云环境或模板配置，不能据本地构建与回归宣称线上可用。
 
 ### 模板和环境变量
 
