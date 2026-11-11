@@ -133,7 +133,6 @@
     .question { margin: 0; font-size: 1.1875rem; line-height: 1.65; font-weight: 650; }
     .action { margin: var(--space-md) 0 0; padding-top: var(--space-md); border-top: 1px solid var(--color-line); font-size: 0.9375rem; line-height: 1.7; }
     .action strong { font-weight: 650; }
-    .safety { margin: var(--space-md) 0 0; color: var(--color-muted); font-size: 0.75rem; line-height: 1.7; }
     .face-toggle {
       display: flex;
       align-items: center;
@@ -194,7 +193,7 @@
     }
     @media (prefers-contrast: more) {
       .card-face, .scenario-switch { border-color: var(--color-ink); }
-      .age-label, .card-number, .safety, .face-toggle, .preview-note { color: var(--color-ink); }
+      .age-label, .card-number, .face-toggle, .preview-note { color: var(--color-ink); }
     }
   </style>
 </head>
@@ -243,7 +242,7 @@
       </button>
     </footer>
   </main>
-  <p class="preview-note" id="preview-note">示例内容为未审草稿 · 订阅仅展示，未接入微信<br>可拖动卡片，也可聚焦卡片后使用 ← → 键</p>
+  <p class="preview-note" id="preview-note">订阅仅展示，未接入微信<br>可拖动卡片，也可聚焦卡片后使用 ← → 键</p>
   <p class="load-error" id="load-error" role="alert" hidden>组件未加载。请在项目目录执行 npm ci，再重新打开此文件。</p>
   <noscript><p class="load-error">请开启 JavaScript 后查看卡片交互。</p></noscript>
 
@@ -299,13 +298,11 @@
               <h1 class="card-title">${card.title}</h1>
               <span class="section-label">开口这样问</span>
               <p class="question">“${card.question}”</p>
-              <p class="action"><strong>随手做</strong>　${card.action}</p>
-              <p class="safety">${card.safety}</p>
+              <p class="action"><strong>随手做</strong>　${card.action} ${card.safety}</p>
             </div>
             <button type="button" class="face-toggle" aria-label="查看${card.title}的详细说明"><svg class="icon" aria-hidden="true"><use href="#flip"/></svg>查看说明</button>
           </div>
           <div class="card-face card-back" data-face="back" aria-hidden="true" inert>
-            <div class="card-meta"><span class="scene-label">仅供家长备课</span><span class="card-number">${String(index + 1).padStart(2, '0')}</span></div>
             <div class="card-reading">
               <h2 class="card-title">为什么这样聊</h2>
               <p class="theory">${card.theory}</p>

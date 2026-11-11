@@ -45,6 +45,7 @@
           <image class="control-icon" src="/static/icons/arrow-right.svg" mode="aspectFit" aria-hidden="true" />
         </button>
       </view>
+      <button v-if="activeCard" class="share-button" role="button" hover-class="button-pressed" @tap="openSharePreview">分享这张卡片</button>
       <!-- #ifdef MP-WEIXIN -->
       <button class="subscribe-button" role="button" hover-class="button-pressed" @tap="reminderOpen = true">
         <image class="control-icon" src="/static/icons/bell.svg" mode="aspectFit" aria-hidden="true" />
@@ -71,8 +72,10 @@ import { onHide, onShow } from '@dcloudio/uni-app'
 import DailyCardDeck from '@/components/DailyCardDeck.vue'
 import { CARDS_DATA, type CardItem } from '@/domain/cards'
 import { dayKey, mapViewedFeed, nextDayStart, parseViewedHistory, recordViewedDay, resolveDailyFeed, type DailyEntry, type DailyFeed, type ViewedDay } from '@/domain/daily-feed'
+import { cardShareMessage } from '@/domain/card-share'
 // #ifdef MP-WEIXIN
 import ReminderSheet from '@/components/ReminderSheet.vue'
+import { onShareAppMessage } from '@dcloudio/uni-app'
 import { reminderSubscriptionLabel, type ReminderSubscription } from '@/domain/reminders'
 import { createDailyFeedService } from '@/services/daily-feed'
 // #endif
@@ -91,6 +94,7 @@ const reducedMotion = ref(false)
 const headerStyle = ref<Record<string, string>>({})
 const hasOlderCard = computed(() => activeIndex.value > 0)
 const hasNewerCard = computed(() => activeIndex.value >= 0 && activeIndex.value < entries.value.length - 1)
+const activeCard = computed(() => entries.value[activeIndex.value]?.card ?? null)
 let midnightTimer: ReturnType<typeof setTimeout> | undefined
 let pageVisible = false
 let refreshVersion = 0
@@ -100,6 +104,7 @@ let disposed = false
 const dailyFeedService = createDailyFeedService()
 const reminderOpen = ref(false)
 const reminderStatus = ref('')
+onShareAppMessage(() => cardShareMessage(activeCard.value))
 function onReminderUpdated(subscription: ReminderSubscription | null) {
   reminderStatus.value = subscription ? `云端已确认：${reminderSubscriptionLabel(subscription)}` : '云端已确认：当前没有提醒计划'
 }
@@ -179,6 +184,14 @@ async function refreshDaily() {
       if (pageVisible) scheduleNextDay(new Date(), visitStarted)
     }
   }
+}
+
+function openSharePreview() {
+  if (!activeCard.value) return
+  uni.navigateTo({
+    url: cardShareMessage(activeCard.value).path,
+    fail: () => uni.showToast({ title: '暂时无法打开分享页，请重试', icon: 'none' }),
+  })
 }
 
 function onCardChange(index: number) {
@@ -278,6 +291,7 @@ onUnmounted(() => {
 .control-icon { width: 18px; height: 18px; flex-shrink: 0; }
 .history-arrow { transform: rotate(180deg); }
 .subscribe-button { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); min-height: 48px; margin: 0; padding: 0 var(--space-lg); border: 0; border-radius: var(--radius-control); background: var(--color-ink); color: var(--color-accent-ink); font-size: 0.875rem; font-weight: 600; line-height: 1.5; }
+.share-button { min-height: 44px; margin: 0; padding: 10px var(--space-lg); border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface-solid); color: var(--color-accent); font-size: 0.875rem; line-height: 1.6; }
 .subscribe-button[disabled] { background: var(--color-ink); color: var(--color-accent-ink); opacity: 0.6; }
 .subscription-note, .delivery-note { color: var(--color-muted); font-size: 0.75rem; line-height: 1.7; }
 .subscription-note, .delivery-note { display: block; text-align: center; }

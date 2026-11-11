@@ -65,11 +65,10 @@
                     <text class="deck-question">“{{ entry.card.front.question }}”</text>
                     <view class="deck-action">
                       <text class="deck-action-label">{{ entry.card.kind === 'weekend' ? '一起实践' : '随手做' }}</text>
-                      <text>{{ entry.card.front.action }}</text>
+                      <text>{{ entry.card.front.action }} {{ entry.card.back.safety }}</text>
                     </view>
                   </view>
                 </scroll-view>
-                <text class="deck-safety">{{ entry.card.back.safety }}</text>
                 <button
                   class="deck-face-toggle"
                   role="button"
@@ -98,10 +97,6 @@
               @scroll="cardDeck.scroll"
             >
               <view class="deck-face-content" :class="'deck-back-copy-' + index">
-                <view class="deck-meta">
-                  <view class="deck-scene"><text>仅供家长备课</text></view>
-                  <text class="deck-practice-tag">草稿 · 待人工审校</text>
-                </view>
                 <scroll-view
                   class="deck-reading"
                   scroll-y
@@ -113,7 +108,7 @@
                   <view class="deck-reading-content">
                     <text class="deck-title">为什么这样聊</text>
                     <text v-if="entry.card.back.domain" class="deck-section-label">{{ entry.card.back.domain }}</text>
-                    <text class="deck-science">{{ entry.card.back.science }}</text>
+                    <text class="deck-science">{{ entry.card.back.science }} {{ entry.card.back.safety }}</text>
                     <view v-if="entry.card.practice" class="deck-practice">
                       <text class="deck-section-label">材料</text>
                       <text class="deck-practice-copy">{{ entry.card.practice.materials }}</text>
@@ -126,7 +121,6 @@
                     </view>
                   </view>
                 </scroll-view>
-                <text class="deck-safety">{{ entry.card.back.safety }}</text>
                 <button
                   class="deck-face-toggle"
                   role="button"

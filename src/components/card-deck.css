@@ -132,7 +132,7 @@
   flex-shrink: 0;
 }
 
-/* Keep safety and the flip control visible. The reading area scrolls first;
+/* Keep the flip control visible. The reading area scrolls first;
  * the outer scroll-view remains an overflow escape at very large text sizes. */
 .deck-reading {
   flex: 1 1 0%;
@@ -191,13 +191,6 @@
   font-weight: 650;
 }
 
-.deck-safety {
-  display: block;
-  flex-shrink: 0;
-  color: var(--color-muted);
-  font-size: 0.75rem;
-  line-height: 1.7;
-}
 
 .deck-science {
   display: block;
@@ -306,7 +299,6 @@
     border-color: var(--color-ink);
   }
 
-  .deck-safety,
   .deck-face-toggle {
     color: var(--color-ink);
   }

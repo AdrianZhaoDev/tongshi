@@ -6,6 +6,12 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "通识卡 · 每日一问"
       }
+    },
+    {
+      "path": "pages/share/index",
+      "style": {
+        "navigationBarTitleText": "通识卡 · 卡片分享"
+      }
     }
   ],
   "globalStyle": {

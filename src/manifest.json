@@ -1,7 +1,7 @@
 {
   "name": "通识卡",
   "appid": "",
-  "description": "通识卡：面向3–5岁家长的每日亲子微探究卡，含待审内容与可选微信提醒",
+  "description": "通识卡：面向3–5岁家长的每日亲子微探究卡与可选微信提醒",
   "versionName": "0.1.0",
   "versionCode": "100",
   "transformPx": false,
